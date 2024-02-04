@@ -1,6 +1,12 @@
-#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27,20,4);
 
 const char* hostname = "{{HOSTNAME}}";
 
@@ -11,48 +17,52 @@ const char* mqtt_server = "{{MQTT_IP}}";
 const char* mqtt_user = "{{MQTT_USER}}";
 const char* mqtt_pass = "{{MQTT_PASSWD}}";
 const char* mqtt_topic_cmd = "{{MQTT_TOPIC_CMD}}";
-const char* mqtt_topic_base = "{{MQTT_TOPIC_BASE}}";
+const char* mqtt_topic_state = "{{MQTT_TOPIC_BASE}}";
+
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 void setup_wifi() {
   delay(10);
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+
+  // We start by connecting to a WiFi network
   WiFi.hostname(hostname);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
   randomSeed(micros());
 
   Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
+  Serial.println("WiFi connected. IP address: ");
   Serial.println(WiFi.localIP());
 }
 
-// void callback() {}
-
-void reconnect() {
-  // Loop until we're reconnected to MQTT
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    if (client.connect(hostname, mqtt_user, mqtt_pass)) {
-      Serial.println("connected");
-      client.setKeepAlive(30);
-      client.subscribe(mqtt_topic_cmd);
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000); // Wait 5 seconds before retrying
-    }
+void callback(char* topic, byte* payload, unsigned int length) {
+  // handle message arrived
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print("Payload: ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
   }
+  Serial.print("Length:");
+  Serial.print(length);
+}
+
+// reconnect non-blocking
+long lastReconnectAttempt = 0;
+
+boolean reconnect() {
+  if (client.connect(hostname, mqtt_user, mqtt_pass)) {
+    // Once connected, publish an announcement...
+    client.publish(mqtt_topic_state,"connected");
+    // ... and resubscribe
+    client.subscribe(mqtt_topic_cmd);
+  }
+  return client.connected();
 }
 
 void setup() {
@@ -61,12 +71,26 @@ void setup() {
   setup_wifi();
 
   client.setServer(mqtt_server, 1883);
-  // client.setCallback(callback);
+  client.setCallback(callback);
+
+  lastReconnectAttempt = 0;
 }
 
-void loop() {
+// loop non-blocking
+void loop()
+{
   if (!client.connected()) {
-    reconnect();
+    long now = millis();
+    if (now - lastReconnectAttempt > 5000) {
+      lastReconnectAttempt = now;
+      // Attempt to reconnect
+      if (reconnect()) {
+        lastReconnectAttempt = 0;
+      }
+    }
+  } else {
+    // Client connected
+    client.loop();
   }
-  client.loop();
+
 }
