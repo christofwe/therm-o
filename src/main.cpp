@@ -1,26 +1,41 @@
+#include <string>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
+#define BH6
+#include "secrets.h"
+
+
+
 LiquidCrystal_I2C lcd(0x27,20,4);
 
-// const char* hostname = "{{HOSTNAME}}";
+const char* mqtt_topic_state = "therm-o/state";
+const char* mqtt_topic_cmd = "therm-o/cmd";
+const char* mqtt_topic_automatic = "therm-o/automatic";
+const char* mqtt_topic_mode = "therm-o/mode";
+const char* mqtt_topic_WWH_VL = "therm-o/wwh/vl";
+const char* mqtt_topic_WWH_IST = "therm-o/wwh/ist";
+const char* mqtt_topic_WWH_RL = "therm-o/wwh/rl";
+const char* mqtt_topic_POOL_VL = "therm-o/pool/vl";
+const char* mqtt_topic_POOL_IST = "therm-o/pool/ist";
+const char* mqtt_topic_POOL_RL = "therm-o/pool/rl";
+const char* mqtt_topic_SK_VL = "therm-o/sk/vl";
+const char* mqtt_topic_SK_IST = "therm-o/sk/ist";
+const char* mqtt_topic_SK_RL = "therm-o/sk/rl";
+// const char* mqtt_topic_WWA_VL = "therm-o/wwa/vl";
+const char* mqtt_topic_WWA_IST = "therm-o/wwa/ist";
+// const char* mqtt_topic_WWA_RL = "therm-o/wwa/rl";
 
-// const char* ssid = "{{WIFI_SSID}}";
-// const char* password = "{{WIFI_PASSWD}}";
-
-// const char* mqtt_server = "{{MQTT_IP}}";
-// const char* mqtt_user = "{{MQTT_USER}}";
-// const char* mqtt_pass = "{{MQTT_PASSWD}}";
-// const char* mqtt_topic_cmd = "{{MQTT_TOPIC_CMD}}";
-// const char* mqtt_topic_state = "{{MQTT_TOPIC_BASE}}";
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
+JsonDocument doc;
 
 float diffWWH = 0;
 float diffPOOL = 0;
@@ -35,10 +50,10 @@ float Temp_SK_IST = 0;
 float Temp_WWH_VL = 0;
 float Temp_WWH_RL = 0;
 float Temp_WWH_IST = 0;
-int Auto = 0;
-int Auto1 = 0;
-int Auto2 = 1;
-int Auto3 = 0;
+
+char mode[] = "normal";
+bool automatic = false;
+
 int TGrenz_WWH = 50;
 int WWHStatus = 0;
 int lastWWHStatus =0 ;
@@ -80,8 +95,8 @@ void setup_wifi() {
   delay(10);
 
   // We start by connecting to a WiFi network
-  WiFi.hostname(hostname);
-  WiFi.begin(ssid, password);
+  WiFi.hostname(CONTROLLER_NAME);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("WiFi connecting");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -93,22 +108,29 @@ void setup_wifi() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  // handle message arrived
-  Serial.print("Message arrived on topic: ");
-  Serial.print(topic);
-  Serial.print("Payload: ");
-  for (int i = 0; i < (int)length; i++) {
-    Serial.print((char)payload[i]);
+
+  DeserializationError error = deserializeJson(doc, payload);
+
+  if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return;
   }
-  Serial.print("Length:");
-  Serial.print(length);
+
+  if (doc.containsKey("mode")){
+    strcpy(mode, doc["mode"]);
+  }
+  if (doc.containsKey("automatic")){
+    automatic = doc["automatic"];
+  }
+  
 }
 
 // reconnect non-blocking
 long lastReconnectAttempt = 0;
 
 boolean reconnect() {
-  if (mqttClient.connect(hostname, mqtt_user, mqtt_pass)) {
+  if (mqttClient.connect(CONTROLLER_NAME, MQTT_USER, MQTT_PASS)) {
     // Once connected, publish an announcement...
     mqttClient.publish(mqtt_topic_state,"connected");
     // ... and resubscribe
@@ -122,7 +144,7 @@ void setup() {
 
   setup_wifi();
 
-  mqttClient.setServer(mqtt_server, 1883);
+  mqttClient.setServer(MQTT_SERVER, 1883);
   mqttClient.setCallback(callback);
 
   lastReconnectAttempt = 0;
@@ -162,6 +184,9 @@ void loop()
     mqttClient.loop();
 
     delay(1000);
+    mqttClient.publish(mqtt_topic_mode, mode);
+    mqttClient.publish(mqtt_topic_automatic, automatic ? "true" : "false");
+
     timer = (millis()/86400000);
     sensors1.requestTemperatures();
     sensors1.setResolution(11);
@@ -218,9 +243,8 @@ void loop()
     lastWWHStatus = WWHStatus;
 
 
-    // schaltung();
-    if (Auto == 0){
-      if (Auto1 == 0 && Auto2 == 0 && Auto3 == 0){
+    if (automatic){ 
+      if (strcmp(mode, "normal") == 0){  // [Normal] Normalfall Temperaturgrenzen bestimmen, welche Pumpe laeuft
         if (Temp_WWH_IST < TGrenz_WWH && diffWWH > 8){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
@@ -246,7 +270,7 @@ void loop()
           }
         }
       }
-      if (Auto1 == 1 && Auto2 == 0 && Auto3 == 0){
+      if (strcmp(mode, "poolprio") == 0){  // [Poolprio] WWH ist deaktiviert und auf Oelheizung, Automatic nur Pool und WWA
         if (Temp_POOL_IST < 33 && diffPOOL > 9){
           digitalWrite(RELAIS_1, HIGH);
           digitalWrite(RELAIS_2, LOW);
@@ -265,7 +289,7 @@ void loop()
           }
         }
       }
-      if (Auto1 == 0 && Auto2 == 1 && Auto3 == 0){
+      if (strcmp(mode, "winter") == 0){  // [Winter] Pool ist still gelegt, WWA ist auf "Frostschutz"
         if (Temp_WWH_IST < TGrenz_WWH && diffWWH > 9){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
@@ -284,7 +308,7 @@ void loop()
           }
         }
       }
-      if (Auto1 == 0 && Auto2 == 0 && Auto3 == 1){
+      if (strcmp(mode, "wwaaus") == 0){  // obsolete(theoretisch) WWA ist still gelegt, Automatic nur Pool und WWH
         if (Temp_WWH_IST < TGrenz_WWH && diffWWH > 8){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
@@ -306,6 +330,7 @@ void loop()
     }
 
 
+
     //Definition der Überschriften
     lcd.clear();
     lcd.print(timer);
@@ -317,7 +342,7 @@ void loop()
     lcd.print("RL: ");
     lcd.setCursor(0,3);
     lcd.print("IST:");
-    if (Auto1 == 1) {
+    if (strcmp(mode, "poolprio") == 0) {
       lcd.setCursor(3,0);
       lcd.print("*");
     }
@@ -325,7 +350,7 @@ void loop()
     lcd.setCursor(3,0);
       lcd.print(" ");
     }
-    if (Auto2 == 1) {
+    if (strcmp(mode, "winter") == 0) {
       lcd.setCursor(7,0);
       lcd.print("*");
     }
@@ -333,7 +358,7 @@ void loop()
       lcd.setCursor(7,0);
       lcd.print(" ");
     }
-    if (Auto3 == 1) {
+    if (strcmp(mode, "wwaaus") == 0) {
       lcd.setCursor(12,0);
       lcd.print("*");
     }
@@ -349,6 +374,9 @@ void loop()
     lcd.print(Temp_WWH_RL,0);
     lcd.setCursor(5,3);
     lcd.print(Temp_WWH_IST,0);
+    mqttClient.publish(mqtt_topic_WWH_VL, std::to_string(Temp_WWH_VL).c_str());
+    mqttClient.publish(mqtt_topic_WWH_IST, std::to_string(Temp_WWH_IST).c_str());
+    mqttClient.publish(mqtt_topic_WWH_RL, std::to_string(Temp_WWH_RL).c_str());
 
     // Anzeige der Temperaturen Pool Kreislauf
     lcd.setCursor(9,1);
@@ -357,6 +385,9 @@ void loop()
     lcd.print(Temp_POOL_RL,0);
     lcd.setCursor(9,3);
     lcd.print(Temp_POOL_IST,0);
+    mqttClient.publish(mqtt_topic_POOL_VL, std::to_string(Temp_POOL_VL).c_str());
+    mqttClient.publish(mqtt_topic_POOL_IST, std::to_string(Temp_POOL_IST).c_str());
+    mqttClient.publish(mqtt_topic_POOL_RL, std::to_string(Temp_POOL_RL).c_str());
 
     // Anzeige der Temperaturen Warmwasser Aussen Kreislauf
     // lcd.setCursor(13,1);
@@ -365,6 +396,9 @@ void loop()
     // lcd.print(Temp_WWA_RL,0);
     lcd.setCursor(13,3);
     lcd.print(Temp_WWA_IST,0);
+    // mqttClient.publish(mqtt_topic_WWA_VL, std::to_string(Temp_WWA_VL).c_str());
+    mqttClient.publish(mqtt_topic_WWA_IST, std::to_string(Temp_WWA_IST).c_str());
+    // mqttClient.publish(mqtt_topic_WWA_RL, std::to_string(Temp_WWA_RL).c_str());
 
     // Anzeige der Temperaturen Solarkollektoren
     lcd.setCursor(17,1);
@@ -373,6 +407,9 @@ void loop()
     lcd.print(Temp_SK_RL,0);
     lcd.setCursor(17,3);
     lcd.print(Temp_SK_IST,0);
+    mqttClient.publish(mqtt_topic_SK_VL, std::to_string(Temp_SK_VL).c_str());
+    mqttClient.publish(mqtt_topic_SK_IST, std::to_string(Temp_SK_IST).c_str());
+    mqttClient.publish(mqtt_topic_SK_RL, std::to_string(Temp_SK_RL).c_str());
   }
 
 }
