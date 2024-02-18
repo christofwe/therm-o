@@ -11,31 +11,17 @@
 #define BH6
 #include "secrets.h"
 
-
-
 LiquidCrystal_I2C lcd(0x27,20,4);
-
-const char* mqtt_topic_state = "therm-o/state";
-const char* mqtt_topic_cmd = "therm-o/cmd";
-const char* mqtt_topic_automatic = "therm-o/automatic";
-const char* mqtt_topic_mode = "therm-o/mode";
-const char* mqtt_topic_WWH_VL = "therm-o/wwh/vl";
-const char* mqtt_topic_WWH_IST = "therm-o/wwh/ist";
-const char* mqtt_topic_WWH_RL = "therm-o/wwh/rl";
-const char* mqtt_topic_POOL_VL = "therm-o/pool/vl";
-const char* mqtt_topic_POOL_IST = "therm-o/pool/ist";
-const char* mqtt_topic_POOL_RL = "therm-o/pool/rl";
-const char* mqtt_topic_SK_VL = "therm-o/sk/vl";
-const char* mqtt_topic_SK_IST = "therm-o/sk/ist";
-const char* mqtt_topic_SK_RL = "therm-o/sk/rl";
-// const char* mqtt_topic_WWA_VL = "therm-o/wwa/vl";
-const char* mqtt_topic_WWA_IST = "therm-o/wwa/ist";
-// const char* mqtt_topic_WWA_RL = "therm-o/wwa/rl";
-
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 JsonDocument doc;
+
+String mqtt_main_topic = "therm-o/";
+const char* mqtt_topic_cmd = "therm-o/cmd";
+
+char mode[] = "normal";
+bool automatic = false;
 
 float diffWWH = 0;
 float diffPOOL = 0;
@@ -51,13 +37,34 @@ float Temp_WWH_VL = 0;
 float Temp_WWH_RL = 0;
 float Temp_WWH_IST = 0;
 
-char mode[] = "normal";
-bool automatic = false;
-
 int TGrenz_WWH = 50;
 int WWHStatus = 0;
 int lastWWHStatus =0 ;
-unsigned long timer=0;
+unsigned long uptime=0;
+
+String get_config(){
+  JsonDocument doc;
+  doc["mode"] = mode;
+  doc["automatic"] = (automatic ? "true" : "false");
+  doc["tgrenz_wwh"] = TGrenz_WWH;
+  doc["uptime"] = uptime;
+  return doc.as<String>();
+}
+
+String get_temp(){
+  JsonDocument doc;
+  doc["pool_vl"] = Temp_POOL_VL;
+  doc["pool_rl"] = Temp_POOL_RL;
+  doc["pool_ist"] = Temp_POOL_IST;
+  doc["wwa_ist"] = Temp_WWA_IST;
+  doc["sk_vl"] = Temp_SK_VL;
+  doc["sk_rl"] = Temp_SK_RL;
+  doc["sk_ist"] = Temp_SK_IST;
+  doc["wwh_vl"] = Temp_WWH_VL;
+  doc["wwh_rl"] = Temp_WWH_RL;
+  doc["wwh_ist"] = Temp_WWH_IST;
+  return doc.as<String>();
+}
 
 #define SENSOR_PIN1 D3 
 #define SENSOR_PIN2 D4
@@ -89,7 +96,6 @@ DeviceAddress WWH_RL = { 40, 255, 175, 191, 193, 23, 1, 59 };
 DeviceAddress WWH_VL = { 40, 255, 80, 192, 193, 23, 1, 192 };
 // neue Adresse DeviceAddress WWH_IST = { 40, 97, 100, 17, 188, 122, 112, 253 };
 DeviceAddress WWH_IST = { 40, 255, 76, 16, 194, 23, 1, 120 };
-
 
 void setup_wifi() {
   delay(10);
@@ -132,7 +138,7 @@ long lastReconnectAttempt = 0;
 boolean reconnect() {
   if (mqttClient.connect(CONTROLLER_NAME, MQTT_USER, MQTT_PASS)) {
     // Once connected, publish an announcement...
-    mqttClient.publish(mqtt_topic_state,"connected");
+    mqttClient.publish((mqtt_main_topic + "state").c_str(), "connected");
     // ... and resubscribe
     mqttClient.subscribe(mqtt_topic_cmd);
   }
@@ -184,10 +190,10 @@ void loop()
     mqttClient.loop();
 
     delay(1000);
-    mqttClient.publish(mqtt_topic_mode, mode);
-    mqttClient.publish(mqtt_topic_automatic, automatic ? "true" : "false");
+    Serial.println(String(ESP.getFreeHeap()));
+    mqttClient.publish((mqtt_main_topic + "config").c_str(), get_config().c_str());
 
-    timer = (millis()/86400000);
+    uptime = (millis()/86400000);
     sensors1.requestTemperatures();
     sensors1.setResolution(11);
 
@@ -329,11 +335,12 @@ void loop()
       }
     }
 
-
+    // Publish to MQTT
+    mqttClient.publish((mqtt_main_topic + "sensor").c_str(), get_temp().c_str());
 
     //Definition der Überschriften
     lcd.clear();
-    lcd.print(timer);
+    lcd.print(uptime);
     lcd.setCursor(4,0);
     lcd.print("WWH Pool WWA SK");
     lcd.setCursor(0,1);
@@ -374,9 +381,6 @@ void loop()
     lcd.print(Temp_WWH_RL,0);
     lcd.setCursor(5,3);
     lcd.print(Temp_WWH_IST,0);
-    mqttClient.publish(mqtt_topic_WWH_VL, std::to_string(Temp_WWH_VL).c_str());
-    mqttClient.publish(mqtt_topic_WWH_IST, std::to_string(Temp_WWH_IST).c_str());
-    mqttClient.publish(mqtt_topic_WWH_RL, std::to_string(Temp_WWH_RL).c_str());
 
     // Anzeige der Temperaturen Pool Kreislauf
     lcd.setCursor(9,1);
@@ -385,9 +389,6 @@ void loop()
     lcd.print(Temp_POOL_RL,0);
     lcd.setCursor(9,3);
     lcd.print(Temp_POOL_IST,0);
-    mqttClient.publish(mqtt_topic_POOL_VL, std::to_string(Temp_POOL_VL).c_str());
-    mqttClient.publish(mqtt_topic_POOL_IST, std::to_string(Temp_POOL_IST).c_str());
-    mqttClient.publish(mqtt_topic_POOL_RL, std::to_string(Temp_POOL_RL).c_str());
 
     // Anzeige der Temperaturen Warmwasser Aussen Kreislauf
     // lcd.setCursor(13,1);
@@ -396,10 +397,7 @@ void loop()
     // lcd.print(Temp_WWA_RL,0);
     lcd.setCursor(13,3);
     lcd.print(Temp_WWA_IST,0);
-    // mqttClient.publish(mqtt_topic_WWA_VL, std::to_string(Temp_WWA_VL).c_str());
-    mqttClient.publish(mqtt_topic_WWA_IST, std::to_string(Temp_WWA_IST).c_str());
-    // mqttClient.publish(mqtt_topic_WWA_RL, std::to_string(Temp_WWA_RL).c_str());
-
+    
     // Anzeige der Temperaturen Solarkollektoren
     lcd.setCursor(17,1);
     lcd.print(Temp_SK_VL,0);
@@ -407,9 +405,6 @@ void loop()
     lcd.print(Temp_SK_RL,0);
     lcd.setCursor(17,3);
     lcd.print(Temp_SK_IST,0);
-    mqttClient.publish(mqtt_topic_SK_VL, std::to_string(Temp_SK_VL).c_str());
-    mqttClient.publish(mqtt_topic_SK_IST, std::to_string(Temp_SK_IST).c_str());
-    mqttClient.publish(mqtt_topic_SK_RL, std::to_string(Temp_SK_RL).c_str());
   }
 
 }
