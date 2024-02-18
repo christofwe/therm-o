@@ -23,9 +23,6 @@ const char* mqtt_topic_cmd = "therm-o/cmd";
 char mode[] = "normal";
 bool automatic = false;
 
-float diffWWH = 0;
-float diffPOOL = 0;
-float diffWWA = 0;
 float Temp_POOL_VL = 0;
 float Temp_POOL_RL = 0;
 float Temp_POOL_IST = 0;
@@ -37,16 +34,23 @@ float Temp_WWH_VL = 0;
 float Temp_WWH_RL = 0;
 float Temp_WWH_IST = 0;
 
-int TGrenz_WWH = 50;
-int WWHStatus = 0;
-int lastWWHStatus =0 ;
-unsigned long uptime=0;
+float diff_wwh;
+float diff_pool;
+float diff_wwa;
+
+int wwh_limit;
+int wwh_min = 50;
+int wwh_max = 58;
+int wwh_relais_state;
+int last_wwh_relais_state;
+unsigned long uptime;
 
 String get_config(){
   JsonDocument doc;
   doc["mode"] = mode;
   doc["automatic"] = (automatic ? "true" : "false");
-  doc["tgrenz_wwh"] = TGrenz_WWH;
+  doc["wwh_min"] = wwh_min;
+  doc["wwh_max"] = wwh_max;
   doc["uptime"] = uptime;
   return doc.as<String>();
 }
@@ -129,6 +133,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (doc.containsKey("automatic")){
     automatic = doc["automatic"];
   }
+  if (doc.containsKey("wwh_min")){
+    wwh_min = doc["wwh_min"];
+  }
+  if (doc.containsKey("wwh_max")){
+    wwh_max = doc["wwh_max"];
+  }
   
 }
 
@@ -197,73 +207,73 @@ void loop()
     sensors1.requestTemperatures();
     sensors1.setResolution(11);
 
-    // float Temp_POOL_VL = sensors1.getTempC(POOL_VL);
-    // float Temp_POOL_RL = sensors1.getTempC(POOL_RL);
-    // float Temp_POOL_IST = sensors1.getTempC(POOL_IST);
-    // float Temp_WWA_IST = sensors1.getTempC(WWA_IST);
-    // float Temp_SK_VL = sensors1.getTempC(SK_VL);
-    // float Temp_SK_RL = sensors1.getTempC(SK_RL);
-    // float Temp_SK_IST = sensors1.getTempC(SK_IST);
-    float Temp_POOL_VL = 12;
-    float Temp_POOL_RL = 8;
-    float Temp_POOL_IST = 10;
-    float Temp_WWA_IST = 15;
-    float Temp_SK_VL = 16;
-    float Temp_SK_RL = 11;
-    float Temp_SK_IST = 14;
+    // Temp_POOL_VL = sensors1.getTempC(POOL_VL);
+    // Temp_POOL_RL = sensors1.getTempC(POOL_RL);
+    // Temp_POOL_IST = sensors1.getTempC(POOL_IST);
+    // Temp_WWA_IST = sensors1.getTempC(WWA_IST);
+    // Temp_SK_VL = sensors1.getTempC(SK_VL);
+    // Temp_SK_RL = sensors1.getTempC(SK_RL);
+    // Temp_SK_IST = sensors1.getTempC(SK_IST);
+    Temp_POOL_VL = 12;
+    Temp_POOL_RL = 8;
+    Temp_POOL_IST = 10;
+    Temp_WWA_IST = 15;
+    Temp_SK_VL = 16;
+    Temp_SK_RL = 11;
+    Temp_SK_IST = 14;
 
 
     delay(1000);
     sensors2.requestTemperatures();
     sensors2.setResolution(11);
 
-    // float Temp_WWH_VL = sensors2.getTempC(WWH_VL);
-    // float Temp_WWH_RL = sensors2.getTempC(WWH_RL);
-    // float Temp_WWH_IST = sensors2.getTempC(WWH_IST);
-    float Temp_WWH_VL = 23;
-    float Temp_WWH_RL = 19;
-    float Temp_WWH_IST = 22;
+    // Temp_WWH_VL = sensors2.getTempC(WWH_VL);
+    // Temp_WWH_RL = sensors2.getTempC(WWH_RL);
+    // Temp_WWH_IST = sensors2.getTempC(WWH_IST);
+    Temp_WWH_VL = 23;
+    Temp_WWH_RL = 19;
+    Temp_WWH_IST = 22;
 
-    diffWWH = Temp_SK_IST-Temp_WWH_IST;
-    diffPOOL = Temp_SK_IST-Temp_POOL_IST;
-    diffWWA = Temp_SK_IST-Temp_WWA_IST;
+    diff_wwh = Temp_SK_IST-Temp_WWH_IST;
+    diff_pool = Temp_SK_IST-Temp_POOL_IST;
+    diff_wwa = Temp_SK_IST-Temp_WWA_IST;
     
     // Eventuell nutzbar für Sensorausfall!!!
     // DeviceCount = sensors.getDeviceCount();
     // Serial.print(DeviceCount);
 
 
-    // Hysterese;
-    WWHStatus = digitalRead(RELAIS_1);
-    if (WWHStatus != lastWWHStatus){
-      //Wenn RELAIS_1 schaltet wird hier reingesprungen;
-      if (WWHStatus == HIGH) {
+    // Hysteresis;
+    wwh_relais_state = digitalRead(RELAIS_1);
+    if (wwh_relais_state != last_wwh_relais_state){
+      // Wenn RELAIS_1 schaltet wird hier reingesprungen;
+      if (wwh_relais_state == HIGH) {
         //Wenn RELAIS_1 von an nach aus wechselt gilt diese Grenztemperatur;
-        TGrenz_WWH = 50;
+        wwh_limit = wwh_min;
       }
       else {
         //Wenn RELAIS_1 von aus nach an wechselt gilt diese Grenztemperatur;
-        TGrenz_WWH = 58;
+        wwh_limit = wwh_max;
       }
     }
-    lastWWHStatus = WWHStatus;
+    last_wwh_relais_state = wwh_relais_state;
 
 
     if (automatic){ 
       if (strcmp(mode, "normal") == 0){  // [Normal] Normalfall Temperaturgrenzen bestimmen, welche Pumpe laeuft
-        if (Temp_WWH_IST < TGrenz_WWH && diffWWH > 8){
+        if (Temp_WWH_IST < wwh_limit && diff_wwh > 8){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
           digitalWrite(RELAIS_3, HIGH);
         }
         else {
-          if (Temp_POOL_IST < 33 && diffPOOL > 12){
+          if (Temp_POOL_IST < 33 && diff_pool > 12){
             digitalWrite(RELAIS_1, HIGH);
             digitalWrite(RELAIS_2, LOW);
             digitalWrite(RELAIS_3, HIGH);
           }
           else {
-            if (Temp_WWA_IST < 58 && diffWWA > 14) {
+            if (Temp_WWA_IST < 58 && diff_wwa > 14) {
               digitalWrite(RELAIS_1, HIGH);
               digitalWrite(RELAIS_2, HIGH);
               digitalWrite(RELAIS_3, LOW);
@@ -277,13 +287,13 @@ void loop()
         }
       }
       if (strcmp(mode, "poolprio") == 0){  // [Poolprio] WWH ist deaktiviert und auf Oelheizung, Automatic nur Pool und WWA
-        if (Temp_POOL_IST < 33 && diffPOOL > 9){
+        if (Temp_POOL_IST < 33 && diff_pool > 9){
           digitalWrite(RELAIS_1, HIGH);
           digitalWrite(RELAIS_2, LOW);
           digitalWrite(RELAIS_3, HIGH);
         }
         else {
-          if (Temp_WWA_IST < 58 && diffWWA > 9) {
+          if (Temp_WWA_IST < 58 && diff_wwa > 9) {
             digitalWrite(RELAIS_1, HIGH);
             digitalWrite(RELAIS_2, HIGH);
             digitalWrite(RELAIS_3, LOW);
@@ -296,13 +306,13 @@ void loop()
         }
       }
       if (strcmp(mode, "winter") == 0){  // [Winter] Pool ist still gelegt, WWA ist auf "Frostschutz"
-        if (Temp_WWH_IST < TGrenz_WWH && diffWWH > 9){
+        if (Temp_WWH_IST < wwh_limit && diff_wwh > 9){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
           digitalWrite(RELAIS_3, HIGH);
         }
         else {
-          if (Temp_WWA_IST < 58 && diffWWA > 9) {
+          if (Temp_WWA_IST < 58 && diff_wwa > 9) {
             digitalWrite(RELAIS_1, HIGH);
             digitalWrite(RELAIS_2, HIGH);
             digitalWrite(RELAIS_3, LOW);
@@ -315,13 +325,13 @@ void loop()
         }
       }
       if (strcmp(mode, "wwaaus") == 0){  // obsolete(theoretisch) WWA ist still gelegt, Automatic nur Pool und WWH
-        if (Temp_WWH_IST < TGrenz_WWH && diffWWH > 8){
+        if (Temp_WWH_IST < wwh_limit && diff_wwh > 8){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
           digitalWrite(RELAIS_3, HIGH);
         }
         else {
-          if (Temp_POOL_IST < 33 && diffPOOL > 12){
+          if (Temp_POOL_IST < 33 && diff_pool > 12){
             digitalWrite(RELAIS_1, HIGH);
             digitalWrite(RELAIS_2, LOW);
             digitalWrite(RELAIS_3, HIGH);
