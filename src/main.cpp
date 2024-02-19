@@ -70,6 +70,31 @@ String get_temp(){
   return doc.as<String>();
 }
 
+// not working yet
+String set_ha_discovery(const char* item){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + item;
+  doc["object_id"] = CONTROLLER_NAME + item;
+  doc["name"] = item + " Temperature";
+  doc["icon"] = "mdi:thermometer";
+  doc["state_topic"] = mqtt_main_topic + "sensor";
+  doc["value_template"] = "{{ value_json." + item +"}}";
+  doc["unit_of_meas"] = "°C";
+  doc["device_class"] = "temperature";
+  doc["state_class"] = "measurement";
+  doc["entity_category"] = "diagnostic";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = "Temperature Controller";
+  doc["device"]["manufacturer"] = "Henabugl Inc.";
+  doc["device"]["sw_version"] = "v0.1.0";
+  return doc.as<String>();
+}
+
 #define SENSOR_PIN1 D3 
 #define SENSOR_PIN2 D4
 #define RELAIS_1 D5
@@ -151,6 +176,11 @@ boolean reconnect() {
     mqttClient.publish((mqtt_main_topic + "state").c_str(), "connected");
     // ... and resubscribe
     mqttClient.subscribe(mqtt_topic_cmd);
+
+    mqttClient.publish("homeassistant/sensor/therm-o/pool_vl/config", set_ha_discovery("pool_vl").c_str(), true);
+    mqttClient.publish("homeassistant/sensor/therm-o/pool_rl/config", set_ha_discovery("pool_rl").c_str(), true);
+    mqttClient.publish("homeassistant/sensor/therm-o/pool_ist/config", set_ha_discovery("pool_ist").c_str(), true);
+    // ... other sensors here
   }
   return mqttClient.connected();
 }
@@ -201,7 +231,8 @@ void loop()
 
     delay(1000);
     Serial.println(String(ESP.getFreeHeap()));
-    mqttClient.publish((mqtt_main_topic + "config").c_str(), get_config().c_str());
+    mqttClient.publish((mqtt_main_topic + "state").c_str(), "connected");
+    mqttClient.publish((mqtt_main_topic + "config").c_str(), get_config().c_str(), true);
 
     uptime = (millis()/86400000);
     sensors1.requestTemperatures();
