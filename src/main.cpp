@@ -19,6 +19,9 @@ JsonDocument doc;
 
 String mqtt_main_topic = "therm-o/";
 const char* mqtt_topic_cmd = "therm-o/cmd";
+String mqtt_discovery_topic_sensor = "homeassistant/sensor/therm-o/";
+String mqtt_discovery_topic_select = "homeassistant/select/therm-o/";
+String mqtt_discovery_topic_switch = "homeassistant/switch/therm-o/";
 
 char mode[] = "normal";
 bool automatic = false;
@@ -48,10 +51,11 @@ unsigned long uptime;
 String get_config(){
   JsonDocument doc;
   doc["mode"] = mode;
-  doc["automatic"] = (automatic ? "true" : "false");
+  doc["automatic"] = automatic;
   doc["wwh_min"] = wwh_min;
   doc["wwh_max"] = wwh_max;
   doc["uptime"] = uptime;
+  doc["free_mem"] = ESP.getFreeHeap();
   return doc.as<String>();
 }
 
@@ -71,19 +75,113 @@ String get_temp(){
 }
 
 // not working yet
-String set_ha_discovery(const char* item){
+String set_ha_discovery_sensor(char* item){
   JsonDocument doc;
   doc["~"] = CONTROLLER_NAME;
-  doc["unique_id"] = CONTROLLER_NAME + item;
-  doc["object_id"] = CONTROLLER_NAME + item;
-  doc["name"] = item + " Temperature";
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_") + std::string(item);
+  doc["object_id"] = CONTROLLER_NAME + std::string("_") + std::string(item);
+  doc["name"] = std::string(item) + " Temperature";
   doc["icon"] = "mdi:thermometer";
-  doc["state_topic"] = mqtt_main_topic + "sensor";
-  doc["value_template"] = "{{ value_json." + item +"}}";
   doc["unit_of_meas"] = "°C";
   doc["device_class"] = "temperature";
   doc["state_class"] = "measurement";
+  doc["state_topic"] = mqtt_main_topic + "sensor";
+  doc["value_template"] = "{{ value_json." + std::string(item) +" }}";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = "Temperature Controller";
+  doc["device"]["manufacturer"] = "Henabugl Inc.";
+  doc["device"]["sw_version"] = "v0.1.0";
+  return doc.as<String>();
+}
+
+String set_ha_discovery_free_mem(){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_free_mem");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_free_mem");
+  doc["name"] = "Free Memory";
+  doc["icon"] = "mdi:memory";
+  doc["unit_of_meas"] = "B";
+  doc["state_class"] = "measurement";
   doc["entity_category"] = "diagnostic";
+  doc["state_topic"] = mqtt_main_topic + "config";
+  doc["value_template"] = "{{ value_json.free_mem }}";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = "Temperature Controller";
+  doc["device"]["manufacturer"] = "Henabugl Inc.";
+  doc["device"]["sw_version"] = "v0.1.0";
+  return doc.as<String>();
+}
+
+String set_ha_discovery_uptime(){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_uptime");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_uptime");
+  doc["name"] = "Uptime";
+  doc["icon"] = "mdi:clock-time-eight-outline";
+  doc["unit_of_meas"] = "s";
+  doc["state_class"] = "measurement";
+  doc["entity_category"] = "diagnostic";
+  doc["state_topic"] = mqtt_main_topic + "config";
+  doc["value_template"] = "{{ value_json.uptime }}";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = "Temperature Controller";
+  doc["device"]["manufacturer"] = "Henabugl Inc.";
+  doc["device"]["sw_version"] = "v0.1.0";
+  return doc.as<String>();
+}
+
+String set_ha_discovery_mode(){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_mode");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_mode");
+  doc["name"] = "Mode";
+  doc["icon"] = "mdi:auto-mode";
+  doc["state_topic"] = mqtt_main_topic + "config";
+  doc["value_template"] = "{{ value_json.mode }}";
+  doc["command_topic"] = mqtt_main_topic + "cmd";
+  doc["command_template"] = "{\"mode\":\"{{ value }}\"}";
+  doc["options"][0] = "normal";
+  doc["options"][1] = "winter";
+  doc["options"][2] = "poolprio";
+  doc["options"][3] = "wwaaus";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = "Temperature Controller";
+  doc["device"]["manufacturer"] = "Henabugl Inc.";
+  doc["device"]["sw_version"] = "v0.1.0";
+  return doc.as<String>();
+}
+
+String set_ha_discovery_automatic(){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_automatic");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_automatic");
+  doc["name"] = "Automatic";
+  doc["icon"] = "mdi:robot";
+  doc["state_topic"] = mqtt_main_topic + "config";
+  doc["value_template"] = "{{ value_json.automatic }}";
+  doc["command_topic"] = mqtt_main_topic + "cmd";
+  doc["command_on_template"] = '{"automatic": true}';
+  doc["command_off_template"] = '{"automatic": false}';
   doc["availability_topic"] = mqtt_main_topic + "state";
   doc["payload_available"] = "connected";
   doc["payload_not_available"] = "disconnected";
@@ -176,11 +274,6 @@ boolean reconnect() {
     mqttClient.publish((mqtt_main_topic + "state").c_str(), "connected");
     // ... and resubscribe
     mqttClient.subscribe(mqtt_topic_cmd);
-
-    mqttClient.publish("homeassistant/sensor/therm-o/pool_vl/config", set_ha_discovery("pool_vl").c_str(), true);
-    mqttClient.publish("homeassistant/sensor/therm-o/pool_rl/config", set_ha_discovery("pool_rl").c_str(), true);
-    mqttClient.publish("homeassistant/sensor/therm-o/pool_ist/config", set_ha_discovery("pool_ist").c_str(), true);
-    // ... other sensors here
   }
   return mqttClient.connected();
 }
@@ -192,6 +285,7 @@ void setup() {
 
   mqttClient.setServer(MQTT_SERVER, 1883);
   mqttClient.setCallback(callback);
+  mqttClient.setBufferSize(1024);
 
   lastReconnectAttempt = 0;
 
@@ -229,12 +323,11 @@ void loop()
     // Client connected
     mqttClient.loop();
 
-    delay(1000);
-    Serial.println(String(ESP.getFreeHeap()));
+    delay(3000);
     mqttClient.publish((mqtt_main_topic + "state").c_str(), "connected");
     mqttClient.publish((mqtt_main_topic + "config").c_str(), get_config().c_str(), true);
 
-    uptime = (millis()/86400000);
+    uptime = (millis()/1000);
     sensors1.requestTemperatures();
     sensors1.setResolution(11);
 
@@ -254,7 +347,7 @@ void loop()
     Temp_SK_IST = 14;
 
 
-    delay(1000);
+    delay(2000);
     sensors2.requestTemperatures();
     sensors2.setResolution(11);
 
@@ -378,10 +471,25 @@ void loop()
 
     // Publish to MQTT
     mqttClient.publish((mqtt_main_topic + "sensor").c_str(), get_temp().c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "wwh_vl/config").c_str(), set_ha_discovery_sensor("wwh_vl").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "wwh_rl/config").c_str(), set_ha_discovery_sensor("wwh_rl").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "wwh_ist/config").c_str(), set_ha_discovery_sensor("wwh_ist").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "pool_vl/config").c_str(), set_ha_discovery_sensor("pool_vl").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "pool_rl/config").c_str(), set_ha_discovery_sensor("pool_rl").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "pool_ist/config").c_str(), set_ha_discovery_sensor("pool_ist").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "sk_vl/config").c_str(), set_ha_discovery_sensor("sk_vl").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "sk_rl/config").c_str(), set_ha_discovery_sensor("sk_rl").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "sk_ist/config").c_str(), set_ha_discovery_sensor("sk_ist").c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "wwa_ist/config").c_str(), set_ha_discovery_sensor("wwa_ist").c_str());
+
+    mqttClient.publish((mqtt_discovery_topic_sensor + "free_mem/config").c_str(), set_ha_discovery_free_mem().c_str());
+    mqttClient.publish((mqtt_discovery_topic_sensor + "uptime/config").c_str(), set_ha_discovery_uptime().c_str());
+    mqttClient.publish((mqtt_discovery_topic_switch + "automatic/config").c_str(), set_ha_discovery_automatic().c_str());
+    mqttClient.publish((mqtt_discovery_topic_select + "mode/config").c_str(), set_ha_discovery_mode().c_str());
+
 
     //Definition der Überschriften
     lcd.clear();
-    lcd.print(uptime);
     lcd.setCursor(4,0);
     lcd.print("WWH Pool WWA SK");
     lcd.setCursor(0,1);
