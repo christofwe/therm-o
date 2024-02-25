@@ -8,7 +8,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-#define BH6
+#define MYHOME
 #include "secrets.h"
 
 LiquidCrystal_I2C lcd(0x27,20,4);
@@ -339,8 +339,8 @@ void setup() {
   pinMode(RELAIS_3, OUTPUT);
   pinMode(RELAIS_4, OUTPUT);
 
-  // sensors1.begin();
-  // sensors2.begin();
+  sensors1.begin();
+  sensors2.begin();
 
   digitalWrite(RELAIS_1, HIGH);
   digitalWrite(RELAIS_2, HIGH);
@@ -375,33 +375,33 @@ void loop()
     mqttClient.publish((mqtt_main_topic + "config").c_str(), get_config().c_str(), true);
 
     // Read sensor values or use dummy values
-    // sensors1.requestTemperatures();
-    // sensors1.setResolution(11);
-    // Temp_POOL_VL = sensors1.getTempC(POOL_VL);
-    // Temp_POOL_RL = sensors1.getTempC(POOL_RL);
-    // Temp_POOL_IST = sensors1.getTempC(POOL_IST);
-    // Temp_WWA_IST = sensors1.getTempC(WWA_IST);
-    // Temp_SK_VL = sensors1.getTempC(SK_VL);
-    // Temp_SK_RL = sensors1.getTempC(SK_RL);
-    // Temp_SK_IST = sensors1.getTempC(SK_IST);
-    Temp_POOL_VL = 12;
-    Temp_POOL_RL = 8;
-    Temp_POOL_IST = 10;
-    Temp_WWA_IST = 15;
-    Temp_SK_VL = 16;
-    Temp_SK_RL = 11;
-    Temp_SK_IST = 14;
+    sensors1.requestTemperatures();
+    sensors1.setResolution(11);
+    Temp_POOL_VL = sensors1.getTempC(POOL_VL);
+    Temp_POOL_RL = sensors1.getTempC(POOL_RL);
+    Temp_POOL_IST = sensors1.getTempC(POOL_IST);
+    Temp_WWA_IST = sensors1.getTempC(WWA_IST);
+    Temp_SK_VL = sensors1.getTempC(SK_VL);
+    Temp_SK_RL = sensors1.getTempC(SK_RL);
+    Temp_SK_IST = sensors1.getTempC(SK_IST);
+    // Temp_POOL_VL = 12;
+    // Temp_POOL_RL = 8;
+    // Temp_POOL_IST = 10;
+    // Temp_WWA_IST = 15;
+    // Temp_SK_VL = 16;
+    // Temp_SK_RL = 11;
+    // Temp_SK_IST = 14;
 
     delay(2000);
     // Read sensor values or use dummy values
-    // sensors2.requestTemperatures();
-    // sensors2.setResolution(11);
-    // Temp_WWH_VL = sensors2.getTempC(WWH_VL);
-    // Temp_WWH_RL = sensors2.getTempC(WWH_RL);
-    // Temp_WWH_IST = sensors2.getTempC(WWH_IST);
-    Temp_WWH_VL = 23;
-    Temp_WWH_RL = 19;
-    Temp_WWH_IST = 22;
+    sensors2.requestTemperatures();
+    sensors2.setResolution(11);
+    Temp_WWH_VL = sensors2.getTempC(WWH_VL);
+    Temp_WWH_RL = sensors2.getTempC(WWH_RL);
+    Temp_WWH_IST = sensors2.getTempC(WWH_IST);
+    // Temp_WWH_VL = 23;
+    // Temp_WWH_RL = 19;
+    // Temp_WWH_IST = 22;
 
     // Calculate temperature differences
     diff_wwh = Temp_SK_IST-Temp_WWH_IST;
