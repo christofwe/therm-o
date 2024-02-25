@@ -21,11 +21,10 @@ String mqtt_main_topic = "therm-o/";
 const char* mqtt_topic_cmd = "therm-o/cmd";
 String mqtt_discovery_topic_sensor = "homeassistant/sensor/therm-o/";
 String mqtt_discovery_topic_select = "homeassistant/select/therm-o/";
-String mqtt_discovery_topic_switch = "homeassistant/switch/therm-o/";
 String mqtt_discovery_topic_number = "homeassistant/number/therm-o/";
 
-char mode[] = "normal";
-bool automatic = false;
+char mode[] = "automatic";
+char priority[] = "normal";
 
 float Temp_POOL_VL = 0;
 float Temp_POOL_RL = 0;
@@ -51,12 +50,12 @@ unsigned long uptime;
 
 String get_config(){
   JsonDocument doc;
+  doc["free_mem"] = ESP.getFreeHeap();
   doc["mode"] = mode;
-  doc["automatic"] = automatic;
+  doc["priority"] = priority;
+  doc["uptime"] = uptime;
   doc["wwh_min"] = wwh_min;
   doc["wwh_max"] = wwh_max;
-  doc["uptime"] = uptime;
-  doc["free_mem"] = ESP.getFreeHeap();
   return doc.as<String>();
 }
 
@@ -75,7 +74,6 @@ String get_temp(){
   return doc.as<String>();
 }
 
-// not working yet
 String set_ha_discovery_sensor(char* item){
   JsonDocument doc;
   doc["~"] = CONTROLLER_NAME;
@@ -145,21 +143,20 @@ String set_ha_discovery_uptime(){
   return doc.as<String>();
 }
 
+// not working yet
 String set_ha_discovery_mode(){
   JsonDocument doc;
   doc["~"] = CONTROLLER_NAME;
   doc["unique_id"] = CONTROLLER_NAME + std::string("_mode");
   doc["object_id"] = CONTROLLER_NAME + std::string("_mode");
   doc["name"] = "Mode";
-  doc["icon"] = "mdi:auto-mode";
+  doc["icon"] = "mdi:refresh-auto";
   doc["state_topic"] = mqtt_main_topic + "config";
   doc["value_template"] = "{{ value_json.mode }}";
   doc["command_topic"] = mqtt_main_topic + "cmd";
   doc["command_template"] = "{\"mode\":\"{{ value }}\"}";
-  doc["options"][0] = "normal";
-  doc["options"][1] = "winter";
-  doc["options"][2] = "poolprio";
-  doc["options"][3] = "wwaaus";
+  doc["options"][0] = "off";
+  doc["options"][1] = "automatic";
   doc["availability_topic"] = mqtt_main_topic + "state";
   doc["payload_available"] = "connected";
   doc["payload_not_available"] = "disconnected";
@@ -171,18 +168,21 @@ String set_ha_discovery_mode(){
   return doc.as<String>();
 }
 
-String set_ha_discovery_automatic(){
+String set_ha_discovery_priority(){
   JsonDocument doc;
   doc["~"] = CONTROLLER_NAME;
-  doc["unique_id"] = CONTROLLER_NAME + std::string("_automatic");
-  doc["object_id"] = CONTROLLER_NAME + std::string("_automatic");
-  doc["name"] = "Automatic";
-  doc["icon"] = "mdi:robot";
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_priority");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_priority");
+  doc["name"] = "Priority";
+  doc["icon"] = "mdi:priority-high";
   doc["state_topic"] = mqtt_main_topic + "config";
-  doc["value_template"] = "{{ value_json.automatic }}";
+  doc["value_template"] = "{{ value_json.priority }}";
   doc["command_topic"] = mqtt_main_topic + "cmd";
-  doc["command_on_template"] = '{"automatic": true}';
-  doc["command_off_template"] = '{"automatic": false}';
+  doc["command_template"] = "{\"priority\":\"{{ value }}\"}";
+  doc["options"][0] = "normal";
+  doc["options"][1] = "winter";
+  doc["options"][2] = "pool";
+  doc["options"][3] = "wwaaus";
   doc["availability_topic"] = mqtt_main_topic + "state";
   doc["payload_available"] = "connected";
   doc["payload_not_available"] = "disconnected";
@@ -204,7 +204,7 @@ String set_ha_discovery_wwh_min(){
   doc["state_topic"] = mqtt_main_topic + "config";
   doc["value_template"] = "{{ value_json.wwh_min }}";
   doc["command_topic"] = mqtt_main_topic + "cmd";
-  doc["command_template"] = "{'wwh_min': {{ value }}}";
+  doc["command_template"] = "{\"wwh_min\": {{ value }}}";
   doc["availability_topic"] = mqtt_main_topic + "state";
   doc["payload_available"] = "connected";
   doc["payload_not_available"] = "disconnected";
@@ -226,7 +226,7 @@ String set_ha_discovery_wwh_max(){
   doc["state_topic"] = mqtt_main_topic + "config";
   doc["value_template"] = "{{ value_json.wwh_max }}";
   doc["command_topic"] = mqtt_main_topic + "cmd";
-  doc["command_template"] = "{'wwh_max': {{ value }}}";
+  doc["command_template"] = "{\"wwh_max\": {{ value }}}";
   doc["availability_topic"] = mqtt_main_topic + "state";
   doc["payload_available"] = "connected";
   doc["payload_not_available"] = "disconnected";
@@ -261,18 +261,18 @@ DeviceAddress WWA_IST = { 40, 255, 208, 80, 193, 23, 2, 8 };
 
 DeviceAddress SK_VL = { 40, 255, 159, 189, 193, 23, 1, 184 };
 DeviceAddress SK_RL = { 40, 255, 7, 187, 193, 23, 1, 56 };
-// neuer Tauchsensor DeviceAddress SK_IST = { 40, 97, 100, 17, 178, 75, 200, 16 };
+// ALTERNATIVE DeviceAddress SK_IST = { 40, 97, 100, 17, 178, 75, 200, 16 };
 DeviceAddress SK_IST = { 40, 255, 86, 187, 193, 23, 1, 96 };
 
 DeviceAddress WWH_RL = { 40, 255, 175, 191, 193, 23, 1, 59 };
 DeviceAddress WWH_VL = { 40, 255, 80, 192, 193, 23, 1, 192 };
-// neue Adresse DeviceAddress WWH_IST = { 40, 97, 100, 17, 188, 122, 112, 253 };
+// ALTERNATIVE DeviceAddress WWH_IST = { 40, 97, 100, 17, 188, 122, 112, 253 };
 DeviceAddress WWH_IST = { 40, 255, 76, 16, 194, 23, 1, 120 };
 
 void setup_wifi() {
   delay(10);
 
-  // We start by connecting to a WiFi network
+  // Connecting to WiFi
   WiFi.hostname(CONTROLLER_NAME);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("WiFi connecting");
@@ -289,11 +289,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   DeserializationError error = deserializeJson(doc, payload);
 
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-
   if (error) {
     Serial.print(F("deserializeJson() failed: "));
     Serial.println(error.f_str());
@@ -303,8 +298,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (doc.containsKey("mode")){
     strcpy(mode, doc["mode"]);
   }
-  if (doc.containsKey("automatic")){
-    automatic = doc["automatic"];
+  if (doc.containsKey("priority")){
+    strcpy(priority, doc["priority"]);
   }
   if (doc.containsKey("wwh_min")){
     wwh_min = doc["wwh_min"];
@@ -344,8 +339,8 @@ void setup() {
   pinMode(RELAIS_3, OUTPUT);
   pinMode(RELAIS_4, OUTPUT);
 
-  sensors1.begin();
-  sensors2.begin();
+  // sensors1.begin();
+  // sensors2.begin();
 
   digitalWrite(RELAIS_1, HIGH);
   digitalWrite(RELAIS_2, HIGH);
@@ -357,9 +352,9 @@ void setup() {
   lcd.clear();
 }
 
-// loop non-blocking
 void loop()
 {
+  // If not connected, reconnect
   if (!mqttClient.connected()) {
     long now = millis();
     if (now - lastReconnectAttempt > 5000) {
@@ -370,17 +365,18 @@ void loop()
       }
     }
   } else {
-    // Client connected
     mqttClient.loop();
 
-    delay(3000);
+    delay(2000);
+    uptime = (millis()/1000);
+
+    // Publish config to MQTT
     mqttClient.publish((mqtt_main_topic + "state").c_str(), "connected");
     mqttClient.publish((mqtt_main_topic + "config").c_str(), get_config().c_str(), true);
 
-    uptime = (millis()/1000);
-    sensors1.requestTemperatures();
-    sensors1.setResolution(11);
-
+    // Read sensor values or use dummy values
+    // sensors1.requestTemperatures();
+    // sensors1.setResolution(11);
     // Temp_POOL_VL = sensors1.getTempC(POOL_VL);
     // Temp_POOL_RL = sensors1.getTempC(POOL_RL);
     // Temp_POOL_IST = sensors1.getTempC(POOL_IST);
@@ -396,11 +392,10 @@ void loop()
     Temp_SK_RL = 11;
     Temp_SK_IST = 14;
 
-
     delay(2000);
-    sensors2.requestTemperatures();
-    sensors2.setResolution(11);
-
+    // Read sensor values or use dummy values
+    // sensors2.requestTemperatures();
+    // sensors2.setResolution(11);
     // Temp_WWH_VL = sensors2.getTempC(WWH_VL);
     // Temp_WWH_RL = sensors2.getTempC(WWH_RL);
     // Temp_WWH_IST = sensors2.getTempC(WWH_IST);
@@ -408,33 +403,27 @@ void loop()
     Temp_WWH_RL = 19;
     Temp_WWH_IST = 22;
 
+    // Calculate temperature differences
     diff_wwh = Temp_SK_IST-Temp_WWH_IST;
     diff_pool = Temp_SK_IST-Temp_POOL_IST;
     diff_wwa = Temp_SK_IST-Temp_WWA_IST;
-    
-    // Eventuell nutzbar für Sensorausfall!!!
-    // DeviceCount = sensors.getDeviceCount();
-    // Serial.print(DeviceCount);
 
-
-    // Hysteresis;
+    // Hysteresis for WWH
     wwh_relais_state = digitalRead(RELAIS_1);
+    // Check if relais state has changed
     if (wwh_relais_state != last_wwh_relais_state){
-      // Wenn RELAIS_1 schaltet wird hier reingesprungen;
+      // Check if relais state has changed from on to off or off to on
       if (wwh_relais_state == HIGH) {
-        //Wenn RELAIS_1 von an nach aus wechselt gilt diese Grenztemperatur;
         wwh_limit = wwh_min;
       }
       else {
-        //Wenn RELAIS_1 von aus nach an wechselt gilt diese Grenztemperatur;
         wwh_limit = wwh_max;
       }
     }
     last_wwh_relais_state = wwh_relais_state;
 
-
-    if (automatic){ 
-      if (strcmp(mode, "normal") == 0){  // [Normal] Normalfall Temperaturgrenzen bestimmen, welche Pumpe laeuft
+    if (strcmp(mode, "automatic") == 0){ 
+      if (strcmp(priority, "normal") == 0){  // [Normal] Normalfall Temperaturgrenzen bestimmen, welche Pumpe laeuft
         if (Temp_WWH_IST < wwh_limit && diff_wwh > 8){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
@@ -460,7 +449,7 @@ void loop()
           }
         }
       }
-      if (strcmp(mode, "poolprio") == 0){  // [Poolprio] WWH ist deaktiviert und auf Oelheizung, Automatic nur Pool und WWA
+      if (strcmp(priority, "pool") == 0){  // [Pool] WWH ist deaktiviert und auf Oelheizung, Automatic nur Pool und WWA
         if (Temp_POOL_IST < 33 && diff_pool > 9){
           digitalWrite(RELAIS_1, HIGH);
           digitalWrite(RELAIS_2, LOW);
@@ -479,7 +468,7 @@ void loop()
           }
         }
       }
-      if (strcmp(mode, "winter") == 0){  // [Winter] Pool ist still gelegt, WWA ist auf "Frostschutz"
+      if (strcmp(priority, "winter") == 0){  // [Winter] Pool ist still gelegt, WWA ist auf "Frostschutz"
         if (Temp_WWH_IST < wwh_limit && diff_wwh > 9){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
@@ -498,7 +487,7 @@ void loop()
           }
         }
       }
-      if (strcmp(mode, "wwaaus") == 0){  // obsolete(theoretisch) WWA ist still gelegt, Automatic nur Pool und WWH
+      if (strcmp(priority, "wwaaus") == 0){  // obsolete(theoretisch) WWA ist still gelegt, Automatic nur Pool und WWH
         if (Temp_WWH_IST < wwh_limit && diff_wwh > 8){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
@@ -519,8 +508,10 @@ void loop()
       }
     }
 
-    // Publish to MQTT
+    // Publish temperature values to MQTT
     mqttClient.publish((mqtt_main_topic + "sensor").c_str(), get_temp().c_str());
+
+    // Publish HA discovery info to MQTT
     mqttClient.publish((mqtt_discovery_topic_sensor + "wwh_vl/config").c_str(), set_ha_discovery_sensor("wwh_vl").c_str());
     mqttClient.publish((mqtt_discovery_topic_sensor + "wwh_rl/config").c_str(), set_ha_discovery_sensor("wwh_rl").c_str());
     mqttClient.publish((mqtt_discovery_topic_sensor + "wwh_ist/config").c_str(), set_ha_discovery_sensor("wwh_ist").c_str());
@@ -534,13 +525,13 @@ void loop()
 
     mqttClient.publish((mqtt_discovery_topic_sensor + "free_mem/config").c_str(), set_ha_discovery_free_mem().c_str());
     mqttClient.publish((mqtt_discovery_topic_sensor + "uptime/config").c_str(), set_ha_discovery_uptime().c_str());
-    mqttClient.publish((mqtt_discovery_topic_switch + "automatic/config").c_str(), set_ha_discovery_automatic().c_str());
+
     mqttClient.publish((mqtt_discovery_topic_select + "mode/config").c_str(), set_ha_discovery_mode().c_str());
+    mqttClient.publish((mqtt_discovery_topic_select + "priority/config").c_str(), set_ha_discovery_priority().c_str());
     mqttClient.publish((mqtt_discovery_topic_number + "wwh_min/config").c_str(), set_ha_discovery_wwh_min().c_str());
     mqttClient.publish((mqtt_discovery_topic_number + "wwh_max/config").c_str(), set_ha_discovery_wwh_max().c_str());
 
-
-    //Definition der Überschriften
+    // Define LCD output headers
     lcd.clear();
     lcd.setCursor(4,0);
     lcd.print("WWH Pool WWA SK");
@@ -550,32 +541,48 @@ void loop()
     lcd.print("RL: ");
     lcd.setCursor(0,3);
     lcd.print("IST:");
-    if (strcmp(mode, "poolprio") == 0) {
+
+    // Show mode and priority on LCD
+    lcd.setCursor(0,0);
+    if (strcmp(mode, "automatic") == 0) { 
+      if (strcmp(priority, "normal") == 0) { 
+        lcd.print("N");
+        lcd.print(" "); 
+        lcd.setCursor(3,0);
+        lcd.print(" "); 
+        lcd.setCursor(7,0);
+        lcd.print(" ");
+      }
+      else {
+        lcd.print("A");
+      }
+      
       lcd.setCursor(3,0);
-      lcd.print("*");
-    }
-    else {
-    lcd.setCursor(3,0);
-      lcd.print(" ");
-    }
-    if (strcmp(mode, "winter") == 0) {
+      if (strcmp(priority, "winter") == 0) {
+        lcd.print("@");
+      }
+      else {
+        lcd.print(" ");
+      }
+
       lcd.setCursor(7,0);
-      lcd.print("*");
-    }
-    else {
-      lcd.setCursor(7,0);
-      lcd.print(" ");
-    }
-    if (strcmp(mode, "wwaaus") == 0) {
+      if (strcmp(priority, "pool") == 0) {
+        lcd.print("@");
+      }
+      else {
+        lcd.print(" ");
+      }
+
       lcd.setCursor(12,0);
-      lcd.print("*");
-    }
-    else {
-      lcd.setCursor(12,0);
-      lcd.print(" ");
+      if (strcmp(priority, "wwaaus") == 0) {
+        lcd.print("@");
+      }
+      else {
+        lcd.print("-");
+      }
     }
 
-    // Anzeige der Temperaturen Warmwasser Haus Kreislauf
+    // Show temperature values on LCD (WWH)
     lcd.setCursor(5,1);
     lcd.print(Temp_WWH_VL,0);
     lcd.setCursor(5,2);
@@ -583,7 +590,7 @@ void loop()
     lcd.setCursor(5,3);
     lcd.print(Temp_WWH_IST,0);
 
-    // Anzeige der Temperaturen Pool Kreislauf
+    // Show temperature values on LCD (Pool)
     lcd.setCursor(9,1);
     lcd.print(Temp_POOL_VL,0);
     lcd.setCursor(9,2);
@@ -591,7 +598,7 @@ void loop()
     lcd.setCursor(9,3);
     lcd.print(Temp_POOL_IST,0);
 
-    // Anzeige der Temperaturen Warmwasser Aussen Kreislauf
+    // Show temperature values on LCD (WWA)
     // lcd.setCursor(13,1);
     // lcd.print(Temp_WWA_VL,0);
     // lcd.setCursor(13,2);
@@ -599,7 +606,7 @@ void loop()
     lcd.setCursor(13,3);
     lcd.print(Temp_WWA_IST,0);
     
-    // Anzeige der Temperaturen Solarkollektoren
+    // Show temperature values on LCD (SK)
     lcd.setCursor(17,1);
     lcd.print(Temp_SK_VL,0);
     lcd.setCursor(17,2);
@@ -607,5 +614,4 @@ void loop()
     lcd.setCursor(17,3);
     lcd.print(Temp_SK_IST,0);
   }
-
 }
