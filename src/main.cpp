@@ -22,6 +22,7 @@ const char* mqtt_topic_cmd = "therm-o/cmd";
 String mqtt_discovery_topic_sensor = "homeassistant/sensor/therm-o/";
 String mqtt_discovery_topic_select = "homeassistant/select/therm-o/";
 String mqtt_discovery_topic_switch = "homeassistant/switch/therm-o/";
+String mqtt_discovery_topic_number = "homeassistant/number/therm-o/";
 
 char mode[] = "normal";
 bool automatic = false;
@@ -92,9 +93,9 @@ String set_ha_discovery_sensor(char* item){
   doc["payload_not_available"] = "disconnected";
   doc["device"]["identifiers"] = CONTROLLER_NAME;
   doc["device"]["name"] = CONTROLLER_NAME;
-  doc["device"]["model"] = "Temperature Controller";
-  doc["device"]["manufacturer"] = "Henabugl Inc.";
-  doc["device"]["sw_version"] = "v0.1.0";
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
   return doc.as<String>();
 }
 
@@ -115,9 +116,9 @@ String set_ha_discovery_free_mem(){
   doc["payload_not_available"] = "disconnected";
   doc["device"]["identifiers"] = CONTROLLER_NAME;
   doc["device"]["name"] = CONTROLLER_NAME;
-  doc["device"]["model"] = "Temperature Controller";
-  doc["device"]["manufacturer"] = "Henabugl Inc.";
-  doc["device"]["sw_version"] = "v0.1.0";
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
   return doc.as<String>();
 }
 
@@ -138,9 +139,9 @@ String set_ha_discovery_uptime(){
   doc["payload_not_available"] = "disconnected";
   doc["device"]["identifiers"] = CONTROLLER_NAME;
   doc["device"]["name"] = CONTROLLER_NAME;
-  doc["device"]["model"] = "Temperature Controller";
-  doc["device"]["manufacturer"] = "Henabugl Inc.";
-  doc["device"]["sw_version"] = "v0.1.0";
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
   return doc.as<String>();
 }
 
@@ -164,9 +165,9 @@ String set_ha_discovery_mode(){
   doc["payload_not_available"] = "disconnected";
   doc["device"]["identifiers"] = CONTROLLER_NAME;
   doc["device"]["name"] = CONTROLLER_NAME;
-  doc["device"]["model"] = "Temperature Controller";
-  doc["device"]["manufacturer"] = "Henabugl Inc.";
-  doc["device"]["sw_version"] = "v0.1.0";
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
   return doc.as<String>();
 }
 
@@ -187,9 +188,53 @@ String set_ha_discovery_automatic(){
   doc["payload_not_available"] = "disconnected";
   doc["device"]["identifiers"] = CONTROLLER_NAME;
   doc["device"]["name"] = CONTROLLER_NAME;
-  doc["device"]["model"] = "Temperature Controller";
-  doc["device"]["manufacturer"] = "Henabugl Inc.";
-  doc["device"]["sw_version"] = "v0.1.0";
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
+  return doc.as<String>();
+}
+
+String set_ha_discovery_wwh_min(){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_wwh_min");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_wwh_min");
+  doc["name"] = "WWH Min";
+  doc["icon"] = "mdi:thermometer-low";
+  doc["state_topic"] = mqtt_main_topic + "config";
+  doc["value_template"] = "{{ value_json.wwh_min }}";
+  doc["command_topic"] = mqtt_main_topic + "cmd";
+  doc["command_template"] = "{'wwh_min': {{ value }}}";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
+  return doc.as<String>();
+}
+
+String set_ha_discovery_wwh_max(){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_wwh_max");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_wwh_max");
+  doc["name"] = "WWH Max";
+  doc["icon"] = "mdi:thermometer-high";
+  doc["state_topic"] = mqtt_main_topic + "config";
+  doc["value_template"] = "{{ value_json.wwh_max }}";
+  doc["command_topic"] = mqtt_main_topic + "cmd";
+  doc["command_template"] = "{'wwh_max': {{ value }}}";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
   return doc.as<String>();
 }
 
@@ -243,6 +288,11 @@ void setup_wifi() {
 void callback(char* topic, byte* payload, unsigned int length) {
 
   DeserializationError error = deserializeJson(doc, payload);
+
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
 
   if (error) {
     Serial.print(F("deserializeJson() failed: "));
@@ -486,6 +536,8 @@ void loop()
     mqttClient.publish((mqtt_discovery_topic_sensor + "uptime/config").c_str(), set_ha_discovery_uptime().c_str());
     mqttClient.publish((mqtt_discovery_topic_switch + "automatic/config").c_str(), set_ha_discovery_automatic().c_str());
     mqttClient.publish((mqtt_discovery_topic_select + "mode/config").c_str(), set_ha_discovery_mode().c_str());
+    mqttClient.publish((mqtt_discovery_topic_number + "wwh_min/config").c_str(), set_ha_discovery_wwh_min().c_str());
+    mqttClient.publish((mqtt_discovery_topic_number + "wwh_max/config").c_str(), set_ha_discovery_wwh_max().c_str());
 
 
     //Definition der Überschriften
