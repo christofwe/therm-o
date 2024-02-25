@@ -182,7 +182,7 @@ String set_ha_discovery_priority(){
   doc["options"][0] = "normal";
   doc["options"][1] = "winter";
   doc["options"][2] = "pool";
-  doc["options"][3] = "wwaaus";
+  doc["options"][3] = "wwaoff";
   doc["availability_topic"] = mqtt_main_topic + "state";
   doc["payload_available"] = "connected";
   doc["payload_not_available"] = "disconnected";
@@ -487,7 +487,7 @@ void loop()
           }
         }
       }
-      if (strcmp(priority, "wwaaus") == 0){  // obsolete(theoretisch) WWA ist still gelegt, Automatic nur Pool und WWH
+      if (strcmp(priority, "wwaoff") == 0){  // obsolete(theoretisch) WWA ist still gelegt, Automatic nur Pool und WWH
         if (Temp_WWH_IST < wwh_limit && diff_wwh > 8){
           digitalWrite(RELAIS_1, LOW);
           digitalWrite(RELAIS_2, HIGH);
@@ -574,11 +574,11 @@ void loop()
       }
 
       lcd.setCursor(12,0);
-      if (strcmp(priority, "wwaaus") == 0) {
-        lcd.print("@");
+      if (strcmp(priority, "wwaoff") == 0) {
+        lcd.print("-");
       }
       else {
-        lcd.print("-");
+        lcd.print(" ");
       }
     }
 
