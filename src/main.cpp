@@ -384,13 +384,7 @@ void loop()
     Temp_SK_VL = sensors1.getTempC(SK_VL);
     Temp_SK_RL = sensors1.getTempC(SK_RL);
     Temp_SK_IST = sensors1.getTempC(SK_IST);
-    // Temp_POOL_VL = 12;
-    // Temp_POOL_RL = 8;
-    // Temp_POOL_IST = 10;
-    // Temp_WWA_IST = 15;
-    // Temp_SK_VL = 16;
-    // Temp_SK_RL = 11;
-    // Temp_SK_IST = 14;
+
 
     delay(2000);
     // Read sensor values or use dummy values
@@ -399,9 +393,6 @@ void loop()
     Temp_WWH_VL = sensors2.getTempC(WWH_VL);
     Temp_WWH_RL = sensors2.getTempC(WWH_RL);
     Temp_WWH_IST = sensors2.getTempC(WWH_IST);
-    // Temp_WWH_VL = 23;
-    // Temp_WWH_RL = 19;
-    // Temp_WWH_IST = 22;
 
     // Calculate temperature differences
     diff_wwh = Temp_SK_IST-Temp_WWH_IST;
