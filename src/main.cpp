@@ -8,7 +8,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-#define BH6
+#define MYHOME
 #include "secrets.h"
 
 LiquidCrystal_I2C lcd(0x27,20,4);
@@ -25,6 +25,7 @@ String mqtt_discovery_topic_number = "homeassistant/number/therm-o/";
 
 char mode[] = "automatic";
 char priority[] = "normal";
+char pump_control[5] = "off";
 
 float Temp_POOL_VL;
 float Temp_POOL_RL;
@@ -53,6 +54,7 @@ String get_config(){
   doc["free_mem"] = ESP.getFreeHeap();
   doc["mode"] = mode;
   doc["priority"] = priority;
+  doc["pump_control"] = pump_control;
   doc["uptime"] = uptime;
   doc["wwh_min"] = wwh_min;
   doc["wwh_max"] = wwh_max;
@@ -198,7 +200,7 @@ String set_ha_discovery_hysteresis(char* threshold){
   doc["~"] = CONTROLLER_NAME;
   doc["unique_id"] = CONTROLLER_NAME + std::string("_") + std::string(threshold);
   doc["object_id"] = CONTROLLER_NAME + std::string("_") + std::string(threshold);
-  doc["name"] = "Hysteresis " + std::string(threshold);
+  doc["name"] = std::string(threshold);
   doc["icon"] = "mdi:thermometer-high";
   if (strcmp(threshold, "wwh_min") == 0){
     doc["icon"] = "mdi:thermometer-low";
@@ -221,6 +223,32 @@ String set_ha_discovery_hysteresis(char* threshold){
   return doc.as<String>();
 }
 
+String set_ha_discovery_pump_control(){
+  JsonDocument doc;
+  doc["~"] = CONTROLLER_NAME;
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_pump_control");
+  doc["object_id"] = CONTROLLER_NAME + std::string("_pump_control");
+  doc["name"] = "Pump Control";
+  doc["icon"] = "mdi:water-pump";
+  doc["state_topic"] = mqtt_main_topic + "config";
+  doc["value_template"] = "{{ value_json.pump_control }}";
+  doc["command_topic"] = mqtt_main_topic + "cmd";
+  doc["command_template"] = "{\"pump_control\":\"{{ value }}\"}";
+  doc["options"][0] = "off";
+  doc["options"][1] = "wwh";
+  doc["options"][2] = "pool";
+  doc["options"][3] = "wwa";
+  doc["options"][4] = "sk";
+  doc["availability_topic"] = mqtt_main_topic + "state";
+  doc["payload_available"] = "connected";
+  doc["payload_not_available"] = "disconnected";
+  doc["device"]["identifiers"] = CONTROLLER_NAME;
+  doc["device"]["name"] = CONTROLLER_NAME;
+  doc["device"]["model"] = CONTROLLER_MODEL;
+  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
+  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
+  return doc.as<String>();
+}
 
 #define SENSOR_PIN1 D3 
 #define SENSOR_PIN2 D4
@@ -281,9 +309,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   if (doc.containsKey("mode")){
     strcpy(mode, doc["mode"]);
+    strcpy(pump_control, "off");
   }
   if (doc.containsKey("priority")){
     strcpy(priority, doc["priority"]);
+  }
+  if (doc.containsKey("pump_control") && (strcmp(mode, "off") == 0)){
+    strcpy(pump_control, doc["pump_control"]);
   }
   if (doc.containsKey("wwh_min")){
     wwh_min = doc["wwh_min"];
@@ -482,6 +514,30 @@ void loop()
         }
       }
     }
+    else {
+      if (strcmp(mode, "off") == 0){
+        if (strcmp(pump_control, "off") == 0){
+          digitalWrite(RELAIS_1, HIGH);
+          digitalWrite(RELAIS_2, HIGH);
+          digitalWrite(RELAIS_3, HIGH);
+        }
+        if (strcmp(pump_control, "wwh") == 0){
+          digitalWrite(RELAIS_1, LOW);
+          digitalWrite(RELAIS_2, HIGH);
+          digitalWrite(RELAIS_3, HIGH);
+        }
+        if (strcmp(pump_control, "pool") == 0){
+          digitalWrite(RELAIS_1, HIGH);
+          digitalWrite(RELAIS_2, LOW);
+          digitalWrite(RELAIS_3, HIGH);
+        }
+        if (strcmp(pump_control, "wwa") == 0){
+          digitalWrite(RELAIS_1, HIGH);
+          digitalWrite(RELAIS_2, HIGH);
+          digitalWrite(RELAIS_3, LOW);
+        }
+      }
+    }
 
     // Publish temperature values to MQTT
     mqttClient.publish((mqtt_main_topic + "sensor").c_str(), get_temp().c_str());
@@ -503,6 +559,7 @@ void loop()
 
     mqttClient.publish((mqtt_discovery_topic_select + "mode/config").c_str(), set_ha_discovery_mode().c_str());
     mqttClient.publish((mqtt_discovery_topic_select + "priority/config").c_str(), set_ha_discovery_priority().c_str());
+    mqttClient.publish((mqtt_discovery_topic_select + "pump_control/config").c_str(), set_ha_discovery_pump_control().c_str());
     mqttClient.publish((mqtt_discovery_topic_number + "wwh_min/config").c_str(), set_ha_discovery_hysteresis("wwh_min").c_str());
     mqttClient.publish((mqtt_discovery_topic_number + "wwh_max/config").c_str(), set_ha_discovery_hysteresis("wwh_max").c_str());
 
