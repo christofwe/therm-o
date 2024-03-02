@@ -25,7 +25,7 @@ String mqtt_discovery_topic_number = "homeassistant/number/therm-o/";
 
 char mode[] = "automatic";
 char priority[] = "normal";
-char pump_control[5] = "off";
+char pump_control[9] = "disabled";
 
 float Temp_POOL_VL;
 float Temp_POOL_RL;
@@ -234,7 +234,7 @@ String set_ha_discovery_pump_control(){
   doc["value_template"] = "{{ value_json.pump_control }}";
   doc["command_topic"] = mqtt_main_topic + "cmd";
   doc["command_template"] = "{\"pump_control\":\"{{ value }}\"}";
-  doc["options"][0] = "off";
+  doc["options"][0] = "disabled";
   doc["options"][1] = "wwh";
   doc["options"][2] = "pool";
   doc["options"][3] = "wwa";
@@ -309,7 +309,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   if (doc.containsKey("mode")){
     strcpy(mode, doc["mode"]);
-    strcpy(pump_control, "off");
+    strcpy(pump_control, "disabled");
   }
   if (doc.containsKey("priority")){
     strcpy(priority, doc["priority"]);
@@ -516,7 +516,7 @@ void loop()
     }
     else {
       if (strcmp(mode, "off") == 0){
-        if (strcmp(pump_control, "off") == 0){
+        if (strcmp(pump_control, "disabled") == 0){
           digitalWrite(RELAIS_1, HIGH);
           digitalWrite(RELAIS_2, HIGH);
           digitalWrite(RELAIS_3, HIGH);
