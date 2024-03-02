@@ -8,7 +8,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-#define MYHOME
+#define BH6
 #include "secrets.h"
 
 LiquidCrystal_I2C lcd(0x27,20,4);
@@ -193,17 +193,23 @@ String set_ha_discovery_priority(){
   return doc.as<String>();
 }
 
-String set_ha_discovery_wwh_min(){
+String set_ha_discovery_hysteresis(char* threshold){
   JsonDocument doc;
   doc["~"] = CONTROLLER_NAME;
-  doc["unique_id"] = CONTROLLER_NAME + std::string("_wwh_min");
-  doc["object_id"] = CONTROLLER_NAME + std::string("_wwh_min");
-  doc["name"] = "WWH Min";
-  doc["icon"] = "mdi:thermometer-low";
+  doc["unique_id"] = CONTROLLER_NAME + std::string("_") + std::string(threshold);
+  doc["object_id"] = CONTROLLER_NAME + std::string("_") + std::string(threshold);
+  doc["name"] = "Hysteresis " + std::string(threshold);
+  doc["icon"] = "mdi:thermometer-high";
+  if (strcmp(threshold, "wwh_min") == 0){
+    doc["icon"] = "mdi:thermometer-low";
+  }
   doc["state_topic"] = mqtt_main_topic + "config";
-  doc["value_template"] = "{{ value_json.wwh_min }}";
+  doc["value_template"] = "{{ value_json." + std::string(threshold) +" }}";
   doc["command_topic"] = mqtt_main_topic + "cmd";
-  doc["command_template"] = "{\"wwh_min\": {{ value }}}";
+  doc["command_template"] = "{\"wwh_max\": {{ value }}}";
+  if (strcmp(threshold, "wwh_min") == 0){
+    doc["command_template"] = "{\"wwh_min\": {{ value }}}";
+  }
   doc["availability_topic"] = mqtt_main_topic + "state";
   doc["payload_available"] = "connected";
   doc["payload_not_available"] = "disconnected";
@@ -215,27 +221,6 @@ String set_ha_discovery_wwh_min(){
   return doc.as<String>();
 }
 
-String set_ha_discovery_wwh_max(){
-  JsonDocument doc;
-  doc["~"] = CONTROLLER_NAME;
-  doc["unique_id"] = CONTROLLER_NAME + std::string("_wwh_max");
-  doc["object_id"] = CONTROLLER_NAME + std::string("_wwh_max");
-  doc["name"] = "WWH Max";
-  doc["icon"] = "mdi:thermometer-high";
-  doc["state_topic"] = mqtt_main_topic + "config";
-  doc["value_template"] = "{{ value_json.wwh_max }}";
-  doc["command_topic"] = mqtt_main_topic + "cmd";
-  doc["command_template"] = "{\"wwh_max\": {{ value }}}";
-  doc["availability_topic"] = mqtt_main_topic + "state";
-  doc["payload_available"] = "connected";
-  doc["payload_not_available"] = "disconnected";
-  doc["device"]["identifiers"] = CONTROLLER_NAME;
-  doc["device"]["name"] = CONTROLLER_NAME;
-  doc["device"]["model"] = CONTROLLER_MODEL;
-  doc["device"]["manufacturer"] = CONTROLLER_MANUFACTURER;
-  doc["device"]["sw_version"] = CONTROLLER_SW_VERSION;
-  return doc.as<String>();
-}
 
 #define SENSOR_PIN1 D3 
 #define SENSOR_PIN2 D4
@@ -518,8 +503,8 @@ void loop()
 
     mqttClient.publish((mqtt_discovery_topic_select + "mode/config").c_str(), set_ha_discovery_mode().c_str());
     mqttClient.publish((mqtt_discovery_topic_select + "priority/config").c_str(), set_ha_discovery_priority().c_str());
-    mqttClient.publish((mqtt_discovery_topic_number + "wwh_min/config").c_str(), set_ha_discovery_wwh_min().c_str());
-    mqttClient.publish((mqtt_discovery_topic_number + "wwh_max/config").c_str(), set_ha_discovery_wwh_max().c_str());
+    mqttClient.publish((mqtt_discovery_topic_number + "wwh_min/config").c_str(), set_ha_discovery_hysteresis("wwh_min").c_str());
+    mqttClient.publish((mqtt_discovery_topic_number + "wwh_max/config").c_str(), set_ha_discovery_hysteresis("wwh_max").c_str());
 
     // Define LCD output headers
     lcd.clear();
