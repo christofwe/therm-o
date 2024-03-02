@@ -26,16 +26,16 @@ String mqtt_discovery_topic_number = "homeassistant/number/therm-o/";
 char mode[] = "automatic";
 char priority[] = "normal";
 
-float Temp_POOL_VL = 0;
-float Temp_POOL_RL = 0;
-float Temp_POOL_IST = 0;
-float Temp_WWA_IST = 0;
-float Temp_SK_VL = 0;
-float Temp_SK_RL = 0;
-float Temp_SK_IST = 0;
-float Temp_WWH_VL = 0;
-float Temp_WWH_RL = 0;
-float Temp_WWH_IST = 0;
+float Temp_POOL_VL;
+float Temp_POOL_RL;
+float Temp_POOL_IST;
+float Temp_WWA_IST;
+float Temp_SK_VL;
+float Temp_SK_RL;
+float Temp_SK_IST;
+float Temp_WWH_VL;
+float Temp_WWH_RL;
+float Temp_WWH_IST;
 
 float diff_wwh;
 float diff_pool;
