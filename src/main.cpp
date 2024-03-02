@@ -143,7 +143,6 @@ String set_ha_discovery_uptime(){
   return doc.as<String>();
 }
 
-// not working yet
 String set_ha_discovery_mode(){
   JsonDocument doc;
   doc["~"] = CONTROLLER_NAME;
