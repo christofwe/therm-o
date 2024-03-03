@@ -401,7 +401,6 @@ void loop()
     Temp_SK_RL = sensors1.getTempC(SK_RL);
     Temp_SK_IST = sensors1.getTempC(SK_IST);
 
-
     delay(2000);
     // Read sensor values or use dummy values
     sensors2.requestTemperatures();
@@ -579,35 +578,38 @@ void loop()
     if (strcmp(mode, "automatic") == 0) { 
       if (strcmp(priority, "normal") == 0) { 
         lcd.print("N");
-        lcd.print(" "); 
-        lcd.setCursor(3,0);
-        lcd.print(" "); 
-        lcd.setCursor(7,0);
-        lcd.print(" ");
       }
       else {
         lcd.print("A");
       }
-      
-      lcd.setCursor(3,0);
-      if (strcmp(priority, "winter") == 0) {
-        lcd.print("@");
-      }
-      else {
-        lcd.print(" ");
-      }
+    }
+    else {
+      lcd.print("M");
+    }
+    
+    lcd.setCursor(3,0);
+    if ((strcmp(priority, "winter") == 0) || (strcmp(pump_control, "wwh") == 0)) {
+      lcd.print("@");
+    }
+    else {
+      lcd.print(" ");
+    }
 
-      lcd.setCursor(7,0);
-      if (strcmp(priority, "pool") == 0) {
-        lcd.print("@");
-      }
-      else {
-        lcd.print(" ");
-      }
+    lcd.setCursor(7,0);
+    if ((strcmp(priority, "pool") == 0) || (strcmp(pump_control, "pool") == 0)) {
+      lcd.print("@");
+    }
+    else {
+      lcd.print(" ");
+    }
 
-      lcd.setCursor(12,0);
-      if (strcmp(priority, "wwaoff") == 0) {
-        lcd.print("-");
+    lcd.setCursor(12,0);
+    if (strcmp(priority, "wwaoff") == 0) {
+      lcd.print("-");
+    }
+    else {
+      if (strcmp(pump_control, "wwa") == 0) {
+        lcd.print("@");
       }
       else {
         lcd.print(" ");
